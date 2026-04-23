@@ -14,8 +14,8 @@ genai.configure(api_key=os.getenv("CHAVE_MESTRA_SORAIA"))
 # 2. DICIONÁRIO DE CONHECIMENTO
 INFO_CLINICA = {
     "nome": "Consultório Dra. Soraya Queiroz",
-    "endereco": "Shopping Tambiá, Piso L2, João Pessoa - PB",
-    "horarios": "Segunda a Sexta (08h às 18h) e Sábados (08h às 12h).",
+    "endereco": "Shopping Tambiá, Piso E3 sala 310/311 , João Pessoa - PB",
+    "horarios": "Segunda a Sexta (08h às 18h) e Sábados (08h às 12h). manhã 08h as 11h, tarde 13h as 17h e noite 17h as 18:30h.",
     "convenios": "Atendemos Unimed Odonto, Sulamerica, CLIN, Dental Center, Dental Gold, Odonto System, Hapvida e consultas particulares.",
     "especialidades": "Ortodontia, Implantes, Clareamento, Estética e Clinica Geral.",
     "estacionamento": "O shopping possui estacionamento próprio com acesso direto ao nosso piso.",
@@ -35,6 +35,7 @@ REGRAS DE OURO:
 5. Seja sempre educada, use emojis de forma moderada 🦷✨.
 6. Nunca invente preços. Diga que a secretária passará os valores exatos após a avaliação.
 7. Responda de forma curta e objetiva.
+8. se estiver fora do horário de atendimento enviei uma resposta agradavel e exlicativa 
 """
 
 # Configuração do Modelo Gemini (Ajustado com o nome exato retornado pelo Scanner)
