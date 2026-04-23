@@ -52,6 +52,15 @@ sessoes_chat = {}
 async def webhook(Body: str = Form(...), From: str = Form(...)):
     mensagem_paciente = Body.lower().strip()
     
+    # COMANDO SECRETO DE DESENVOLVEDOR PARA LIMPAR A MEMÓRIA
+    if mensagem_paciente == "reiniciar teste":
+        if From in sessoes_chat:
+            del sessoes_chat[From] # Apaga o seu histórico
+        
+        twiml = MessagingResponse()
+        twiml.message("🔄 Memória apagada! Pode mandar um 'Oi' e serei uma nova SoraIA para você.")
+        return Response(content=str(twiml), media_type="application/xml")
+    
     # Lógica de Resposta Rápida (FAQ Local)
     resposta_direta = None
     if "onde fica" in mensagem_paciente or "endereço" in mensagem_paciente:
