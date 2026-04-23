@@ -37,9 +37,9 @@ REGRAS DE OURO:
 7. Responda de forma curta e objetiva.
 """
 
-# Configuração do Modelo Gemini (Versão estável)
+# Configuração do Modelo Gemini (Ajustado com o nome exato retornado pelo Scanner)
 model = genai.GenerativeModel(
-    model_name="models/gemini-1.5-flash-latest",
+    model_name="models/gemini-flash-latest",
     system_instruction=SYSTEM_PROMPT
 )
 
@@ -70,7 +70,7 @@ async def webhook(Body: str = Form(...)):
     else:
         resposta_final = resposta_direta
 
-    # CORREÇÃO AQUI: Usamos Response com 'content' e 'media_type'
+    # Usamos Response com 'content' e 'media_type'
     twiml = MessagingResponse()
     twiml.message(resposta_final)
     
