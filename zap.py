@@ -1,71 +1,84 @@
 import os
-from fastapi import FastAPI, Form, Response
-from dotenv import load_dotenv
+from fastapi import FastAPI, Request, Form
 from twilio.twiml.messaging_response import MessagingResponse
 import google.generativeai as genai
+from dotenv import load_dotenv
 
-# 1. Configuração de Ambiente
+# 1. Configurações Iniciais
 load_dotenv()
+app = FastAPI()
+
+# Configuração da nova chave de segurança
 genai.configure(api_key=os.getenv("CHAVE_MESTRA_SORAIA"))
 
-# Nova Instrução de Sistema refinada para os períodos e convênios
-INSTRUCAO = """Você é a SoraIA, assistente da Clínica Soraya Queiroz (Shopping Tambiá).
-Sua missão é realizar a triagem inicial para agendamento.
+# 2. DICIONÁRIO DE CONHECIMENTO (O "Cérebro" da Clínica)
+# Mude as informações abaixo sempre que a clínica tiver novidades
+INFO_CLINICA = {
+    "nome": "Consultório Dra. Soraya Queiroz",
+    "endereco": "Shopping Tambiá, Piso L2, João Pessoa - PB",
+    "horarios": "Segunda a Sexta (08h às 18h) e Sábados (08h às 12h).",
+    "convenios": "Atendemos Unimed Odonto, Sulamerica, CLIN, Dental Center, Dental Gold, Odonto System, Hapvida  e consultas particulares.",
+    "especialidades": "Ortodontia, Implantes, Clareamento, Estética e Clinica Geral.",
+    "estacionamento": "O shopping possui estacionamento próprio com acesso direto ao nosso piso.",
+    "instrucoes_transbordo": "Para agendar, preciso que você me diga seu nome completo e o procedimento desejado."
+}
 
-REGRAS DE ATENDIMENTO:
-1. Horários: Não use horas exatas. Ofereça apenas os períodos: MANHÃ, TARDE ou NOITE.
-2. Convênios: Pergunte obrigatoriamente se o atendimento é PARTICULAR ou por PLANO DE SAÚDE.
-3. Se for PLANO, pergunte qual é o nome do plano (Aceitamos: Unimed Odonto, CLIN, Sulamerica, Dental Center, Dental Gold, Hapvida, Odonto System).
-4. Dados Necessários: Você deve coletar Nome Completo, Telefone, Período preferido e Tipo de Atendimento (Particular ou Plano).
-5. Tom de Voz: Profissional, acolhedor e direto.
+# 3. PROMPT DO SISTEMA (Personalidade da SoraIA)
+SYSTEM_PROMPT = f"""
+Você é a SoraIA, a assistente virtual gentil e eficiente do {INFO_CLINICA['nome']}.
+Seu objetivo é realizar uma triagem inicial para agendamentos.
 
-FLUXO FINAL:
-- Quando você tiver TODAS as informações acima, agradeça e diga que "A equipe de atendimento entrará em contato em breve para confirmar o horário".
-- Não tente agendar o minuto exato, deixe isso para os humanos após a triagem."""
+REGRAS DE OURO:
+1. Localização: {INFO_CLINICA['endereco']}.
+2. Horários: {INFO_CLINICA['horarios']}.
+3. Convênios: {INFO_CLINICA['convenios']}.
+4. Se o cliente quiser agendar, peça o NOME COMPLETO e o CONVÊNIO/PROCEDIMENTO.
+5. Seja sempre educada, use emojis de forma moderada 🦷✨.
+6. Nunca invente preços. Diga que a secretária passará os valores exatos após a avaliação.
+7. Responda de forma curta e objetiva.
+"""
 
-# 2. Inicializa o modelo (Usando o 2.5-flash que seu scanner confirmou)
+# Configuração do Modelo Gemini
 model = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
-    system_instruction=INSTRUCAO,
-    generation_config={"temperature": 0.3}
+    model_name="gemini-1.5-flash",
+    system_instruction=SYSTEM_PROMPT
 )
 
-chats_ativos = {}
-
-app = FastAPI(title="SoraIA Pro")
-
+# 4. ROTA DO WEBHOOK (Onde o WhatsApp se conecta)
 @app.post("/webhook")
-async def twilio_webhook(From: str = Form(...), Body: str = Form(...)):
-    telefone_paciente = From.replace("whatsapp:", "")
-    texto_paciente = Body
+async def webhook(Body: str = Form(...)):
+    # Recebe a mensagem do paciente
+    mensagem_paciente = Body.lower().strip()
     
-    if telefone_paciente not in chats_ativos:
-        chats_ativos[telefone_paciente] = model.start_chat(history=[])
+    # Lógica de Resposta Rápida (FAQ Local - Economiza API)
+    resposta_direta = None
     
-    try:
-        resposta = chats_ativos[telefone_paciente].send_message(texto_paciente)
-        texto_resposta = resposta.text
-        
-        # LÓGICA DE NOTIFICAÇÃO (Simulação de entrega para atendentes)
-        # Como engenheiro, você pode expandir isso para salvar em um banco ou enviar um e-mail
-        if "entrará em contato em breve" in texto_resposta.lower():
-            print(f"\n--- NOTIFICAÇÃO PARA ATENDENTES ---")
-            print(f"Paciente: {telefone_paciente} finalizou a triagem.")
-            print(f"Resumo da Conversa: {chats_ativos[telefone_paciente].history[-2:]}")
-            print(f"------------------------------------\n")
+    if "onde fica" in mensagem_paciente or "endereço" in mensagem_paciente:
+        resposta_direta = f"Ficamos localizados no {INFO_CLINICA['endereco']}. 📍"
+    elif "horário" in mensagem_paciente or "aberto" in mensagem_paciente:
+        resposta_direta = f"Nosso horário de atendimento é: {INFO_CLINICA['horarios']}"
+    elif "convênio" in mensagem_paciente or "plano" in mensagem_paciente:
+        resposta_direta = f"Atualmente {INFO_CLINICA['convenios']}. Qual seria o seu?"
 
-    except Exception as e:
-        print(f"Erro no Gemini: {e}")
-        texto_resposta = "Desculpe, tive um problema técnico. Poderia repetir?"
-    
-    twiml_response = MessagingResponse()
-    twiml_response.message(texto_resposta)
-    
-    return Response(content=str(twiml_response), media_type="application/xml")
+    # Se não for uma pergunta de FAQ, usa a inteligência do Gemini
+    if not resposta_direta:
+        try:
+            response = model.generate_content(mensagem_paciente)
+            resposta_final = response.text
+        except Exception as e:
+            print(f"Erro no Gemini: {e}")
+            resposta_final = "Peço desculpas, tive um probleminha técnico. Pode repetir? 😅"
+    else:
+        resposta_final = resposta_direta
 
+    # Resposta formatada para o Twilio/WhatsApp
+    twiml = MessagingResponse()
+    twiml.message(resposta_final)
+    
+    return Request(status_code=200, content=str(twiml), media_type="application/xml")
+
+# 5. EXECUÇÃO DO SERVIDOR (Ajustado para o Render)
 if __name__ == "__main__":
     import uvicorn
-    import os
-    # O Render exige que leiamos a porta da variável de ambiente PORT
     porta = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=porta)
