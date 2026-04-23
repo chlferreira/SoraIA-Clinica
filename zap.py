@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, Response
 from twilio.twiml.messaging_response import MessagingResponse
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -8,22 +8,21 @@ from dotenv import load_dotenv
 load_dotenv()
 app = FastAPI()
 
-# Configuração da nova chave de segurança
+# Configuração da chave de segurança (CHAVE_MESTRA_SORAIA)
 genai.configure(api_key=os.getenv("CHAVE_MESTRA_SORAIA"))
 
-# 2. DICIONÁRIO DE CONHECIMENTO (O "Cérebro" da Clínica)
-# Mude as informações abaixo sempre que a clínica tiver novidades
+# 2. DICIONÁRIO DE CONHECIMENTO
 INFO_CLINICA = {
     "nome": "Consultório Dra. Soraya Queiroz",
     "endereco": "Shopping Tambiá, Piso L2, João Pessoa - PB",
     "horarios": "Segunda a Sexta (08h às 18h) e Sábados (08h às 12h).",
-    "convenios": "Atendemos Unimed Odonto, Sulamerica, CLIN, Dental Center, Dental Gold, Odonto System, Hapvida  e consultas particulares.",
+    "convenios": "Atendemos Unimed Odonto, Sulamerica, CLIN, Dental Center, Dental Gold, Odonto System, Hapvida e consultas particulares.",
     "especialidades": "Ortodontia, Implantes, Clareamento, Estética e Clinica Geral.",
     "estacionamento": "O shopping possui estacionamento próprio com acesso direto ao nosso piso.",
     "instrucoes_transbordo": "Para agendar, preciso que você me diga seu nome completo e o procedimento desejado."
 }
 
-# 3. PROMPT DO SISTEMA (Personalidade da SoraIA)
+# 3. PROMPT DO SISTEMA
 SYSTEM_PROMPT = f"""
 Você é a SoraIA, a assistente virtual gentil e eficiente do {INFO_CLINICA['nome']}.
 Seu objetivo é realizar uma triagem inicial para agendamentos.
@@ -38,19 +37,19 @@ REGRAS DE OURO:
 7. Responda de forma curta e objetiva.
 """
 
-# Configuração do Modelo Gemini
+# Configuração do Modelo Gemini (Versão estável)
 model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
     system_instruction=SYSTEM_PROMPT
 )
 
-# 4. ROTA DO WEBHOOK (Onde o WhatsApp se conecta)
+# 4. ROTA DO WEBHOOK
 @app.post("/webhook")
 async def webhook(Body: str = Form(...)):
     # Recebe a mensagem do paciente
     mensagem_paciente = Body.lower().strip()
     
-    # Lógica de Resposta Rápida (FAQ Local - Economiza API)
+    # Lógica de Resposta Rápida (FAQ Local)
     resposta_direta = None
     
     if "onde fica" in mensagem_paciente or "endereço" in mensagem_paciente:
@@ -60,7 +59,7 @@ async def webhook(Body: str = Form(...)):
     elif "convênio" in mensagem_paciente or "plano" in mensagem_paciente:
         resposta_direta = f"Atualmente {INFO_CLINICA['convenios']}. Qual seria o seu?"
 
-    # Se não for uma pergunta de FAQ, usa a inteligência do Gemini
+    # Se não for FAQ, usa o Gemini
     if not resposta_direta:
         try:
             response = model.generate_content(mensagem_paciente)
@@ -71,13 +70,13 @@ async def webhook(Body: str = Form(...)):
     else:
         resposta_final = resposta_direta
 
-    # Resposta formatada para o Twilio/WhatsApp
+    # CORREÇÃO AQUI: Usamos Response com 'content' e 'media_type'
     twiml = MessagingResponse()
     twiml.message(resposta_final)
     
-    return Request(status_code=200, content=str(twiml), media_type="application/xml")
+    return Response(content=str(twiml), media_type="application/xml")
 
-# 5. EXECUÇÃO DO SERVIDOR (Ajustado para o Render)
+# 5. EXECUÇÃO
 if __name__ == "__main__":
     import uvicorn
     porta = int(os.environ.get("PORT", 10000))
