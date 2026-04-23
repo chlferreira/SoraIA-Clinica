@@ -6,7 +6,7 @@ import google.generativeai as genai
 
 # 1. Configuração de Ambiente
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=os.getenv("CHAVE_MESTRA_SORAIA"))
 
 # Nova Instrução de Sistema refinada para os períodos e convênios
 INSTRUCAO = """Você é a SoraIA, assistente da Clínica Soraya Queiroz (Shopping Tambiá).
