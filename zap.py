@@ -94,7 +94,7 @@ async def webhook(Body: str = Form(...), From: str = Form(...)):
     twiml = MessagingResponse()
     twiml.message(resposta_final)
     
-    return Response(content=str(twiml), media_type="application/xml")
+    return Response(content=str(twiml), media_type="text/xml")
 
 # 5. EXECUÇÃO
 if __name__ == "__main__":
